@@ -1,37 +1,44 @@
-version: "3.9"
 services:
+  db:
+    image: postgres:13.1-alpine
+    restart: always
+    volumes:
+      - db-data:${DB_DATA_DIR}
+    environment:
+      - PGDATA=${DB_DATA_DIR}
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+
   metabase:
     image: metabase/metabase:latest
-    container_name: metabase
-    hostname: metabase
-    volumes:
-      - /dev/urandom:/dev/random:ro
+    restart: always
+    environment:
+      MB_DB_TYPE: "postgres"
+      MB_DB_DBNAME: "${DB_NAME}"
+      MB_DB_PORT: "5432"
+      MB_DB_USER: "${DB_USER}"
+      MB_DB_PASS: "${DB_PASSWORD}"
+      MB_DB_HOST: "db"
+      MB_PASSWORD_COMPLEXITY: strong
+      MB_PASSWORD_LENGTH: 10
+      JAVA_TIMEZONE: "${MB_JAVA_TIMEZONE}"
     ports:
-      - 3000:3000
-    environment:
-      MB_DB_TYPE: postgres
-      MB_DB_DBNAME: metabaseappdb
-      MB_DB_PORT: 5432
-      MB_DB_USER: metabase
-      MB_DB_PASS: mysecretpassword
-      MB_DB_HOST: postgres
+      - 127.0.0.1:${MB_PORT}:3000
+    extra_hosts:
+      - host.docker.internal:host-gateway
     networks:
-      - metanet1
-    healthcheck:
-      test: curl --fail -I http://localhost:3000/api/health || exit 1
-      interval: 15s
-      timeout: 5s
-      retries: 5
-  postgres:
-    image: postgres:latest
-    container_name: postgres
-    hostname: postgres
-    environment:
-      POSTGRES_USER: metabase
-      POSTGRES_DB: metabaseappdb
-      POSTGRES_PASSWORD: mysecretpassword
-    networks:
-      - metanet1
+      default:
+        ipv4_address: 172.16.200.30
+    depends_on:
+      - db
+
 networks:
-  metanet1:
-    driver: bridge
+  default:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.16.200.0/24"
+
+volumes:
+  db-data:
